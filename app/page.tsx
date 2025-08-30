@@ -3,9 +3,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
+import Link from 'next/link'
+import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import type { StoryPrompt, TTSResponse, ErrorResponse } from '@/types'
 import { useTypingEffect } from '@/hooks/useTypingEffect'
 import { useRotatingPlaceholder } from '@/hooks/useRotatingPlaceholder'
+import { useUserSync } from '@/hooks/useUserSync'
 
 // Color palette
 const colors = {
@@ -32,6 +35,9 @@ export default function Home() {
   const [duration, setDuration] = useState(0)
   const [cardColor, setCardColor] = useState<string>('')
   const audioRef = useRef<HTMLAudioElement>(null)
+  
+  // Sync user profile with Supabase
+  useUserSync()
   
   // Use typing effect when loading
   const { displayedText, isTyping } = useTypingEffect(storyText, 20, isLoading && !isGeneratingAudio)
@@ -154,10 +160,10 @@ export default function Home() {
         <div className="w-full h-px bg-gray-200"></div>
         
         <nav className="p-8 space-y-4">
-          <a href="#" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+          <Link href="/profile" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
             <span>Profile</span>
             <sup className="text-xs text-gray-400 transition-colors group-hover:text-[#18A48C]">01</sup>
-          </a>
+          </Link>
           <a href="#" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
             <span>Trending</span>
             <sup className="text-xs text-gray-400 transition-colors group-hover:text-[#FF6F3C]">01</sup>
@@ -173,8 +179,40 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
+        {/* Header with Login/Signup */}
+        <header className="flex justify-end items-center px-12 py-6">
+          <div className="flex items-center gap-4">
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="text-gray-700 hover:text-gray-900 font-medium">
+                  Login
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="relative group">
+                  <span className="absolute inset-0 bg-black rounded-full" />
+                  <span className="relative block bg-[#79ED82] text-black px-6 py-2.5 rounded-full font-medium border-3 border-black transition-transform group-hover:-translate-y-1 group-hover:translate-x-1">
+                    Sign up
+                  </span>
+                </button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <UserButton 
+                appearance={{
+                  elements: {
+                    avatarBox: "w-10 h-10",
+                    userButtonPopoverCard: "shadow-lg",
+                  }
+                }}
+                showName={true}
+              />
+            </SignedIn>
+          </div>
+        </header>
+
         {/* Top Section with Title and Input */}
-        <div className="p-12 pb-0">
+        <div className="p-12 pt-16 pb-0">
           <div className="max-w-4xl mx-auto space-y-12">
             {/* Title */}
             <motion.h1 
