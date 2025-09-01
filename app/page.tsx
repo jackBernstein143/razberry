@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs'
 import type { StoryPrompt, TTSResponse, ErrorResponse } from '@/types'
 import { useTypingEffect } from '@/hooks/useTypingEffect'
 import { useRotatingPlaceholder } from '@/hooks/useRotatingPlaceholder'
 import { useUserSync } from '@/hooks/useUserSync'
+import { useRouter } from 'next/navigation'
 
 // Color palette
 const colors = {
@@ -34,10 +35,26 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [cardColor, setCardColor] = useState<string>('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [originalPrompt, setOriginalPrompt] = useState('')
+  const [audioBase64, setAudioBase64] = useState('')
+  const [hasGeneratedFreeStory, setHasGeneratedFreeStory] = useState(false)
+  const [wantsToContinue, setWantsToContinue] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const { user } = useUser()
+  const router = useRouter()
   
   // Sync user profile with Supabase
   useUserSync()
+
+  // Check if user has already used their free generation
+  useEffect(() => {
+    const freeStoryUsed = localStorage.getItem('freeStoryUsed')
+    if (freeStoryUsed === 'true') {
+      setHasGeneratedFreeStory(true)
+    }
+  }, [])
   
   // Use typing effect when loading
   const { displayedText, isTyping } = useTypingEffect(storyText, 20, isLoading && !isGeneratingAudio)
@@ -57,6 +74,12 @@ export default function Home() {
     e?.preventDefault()
     
     if (!promptText.trim()) return
+
+    // Check if user has already used their free story and isn't logged in
+    if (hasGeneratedFreeStory && !user) {
+      router.push('/pricing')
+      return
+    }
 
     setIsLoading(true)
     setIsGeneratingAudio(true)
@@ -91,9 +114,13 @@ export default function Home() {
       setStoryTitle(storyData.storyTitle)
       setStoryDescription(storyData.storyDescription)
       setStoryText(storyData.storyText)
+      setOriginalPrompt(promptText)
+      setSaveSuccess(false)
       setIsLoading(false) // Story is loaded, stop typing effect
 
       if (storyData.audio) {
+        console.log('Received audio from API, base64 length:', storyData.audio.base64?.length || 0)
+        setAudioBase64(storyData.audio.base64)
         const audioBlob = new Blob(
           [Uint8Array.from(atob(storyData.audio.base64), c => c.charCodeAt(0))],
           { type: storyData.audio.mime }
@@ -101,9 +128,21 @@ export default function Home() {
         const url = URL.createObjectURL(audioBlob)
         setAudioUrl(url)
         setIsGeneratingAudio(false) // Audio is ready
+      } else {
+        console.log('No audio data in story response')
       }
       
       setPromptText('')
+      
+      // Mark that user has used their free generation
+      if (!user && !hasGeneratedFreeStory) {
+        localStorage.setItem('freeStoryUsed', 'true')
+        setHasGeneratedFreeStory(true)
+        // Show continue prompt after story is complete
+        setTimeout(() => {
+          setWantsToContinue(true)
+        }, 3000)
+      }
     } catch (err) {
       console.error('Error generating story:', err)
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
@@ -127,6 +166,45 @@ export default function Home() {
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const handleSaveStory = async () => {
+    if (!user || !storyText || isSaving || saveSuccess) return
+
+    console.log('Saving story with audio base64 length:', audioBase64?.length || 0)
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/story/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: storyTitle,
+          description: storyDescription,
+          content: storyText,
+          audioBase64: audioBase64,
+          prompt: originalPrompt
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save story')
+      }
+
+      setSaveSuccess(true)
+    } catch (error) {
+      console.error('Error saving story:', error)
+      setError('Failed to save story. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleContinue = () => {
+    setWantsToContinue(false)
+    router.push('/pricing')
   }
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -160,6 +238,10 @@ export default function Home() {
         <div className="w-full h-px bg-gray-200"></div>
         
         <nav className="p-8 space-y-4">
+          <Link href="/pricing" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+            <span>Pricing</span>
+            <sup className="text-xs text-gray-400 transition-colors group-hover:text-[#79ED82]">✨</sup>
+          </Link>
           <Link href="/profile" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
             <span>Profile</span>
             <sup className="text-xs text-gray-400 transition-colors group-hover:text-[#18A48C]">01</sup>
@@ -180,7 +262,15 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {/* Header with Login/Signup */}
-        <header className="flex justify-end items-center px-12 py-6">
+        <header className="flex justify-between items-center px-12 py-6">
+          {/* Pricing link */}
+          <Link
+            href="/pricing"
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+          >
+            Pricing
+          </Link>
+          
           <div className="flex items-center gap-4">
             <SignedOut>
               <SignInButton mode="modal">
@@ -402,9 +492,93 @@ export default function Home() {
             )}
           </AnimatePresence>
 
+          {/* Action Buttons - Below the card */}
+          <AnimatePresence>
+            {storyText && !isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="flex items-center gap-3 mt-4"
+              >
+                {/* Save Button */}
+                <SignedIn>
+                  <button
+                    onClick={handleSaveStory}
+                    disabled={isSaving || saveSuccess || !storyText}
+                    className="px-6 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {isSaving ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Saving...
+                      </span>
+                    ) : saveSuccess ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Saved
+                      </span>
+                    ) : (
+                      'Save'
+                    )}
+                  </button>
+                </SignedIn>
+                <SignedOut>
+                  <div className="px-6 py-3 bg-gray-200 text-gray-500 rounded-full font-medium cursor-not-allowed">
+                    Sign in to save
+                  </div>
+                </SignedOut>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           </div>
         </div>
       </main>
+
+      {/* Continue Prompt for first-time users */}
+      <AnimatePresence>
+        {wantsToContinue && !user && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 backdrop-blur-md z-40 flex items-center justify-center px-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full text-center"
+            >
+              <h3 className="text-2xl font-bold mb-4">Enjoying your story?</h3>
+              <p className="text-gray-600 mb-6">
+                Want to continue creating more amazing audio stories?
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setWantsToContinue(false)}
+                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Not now
+                </button>
+                <button
+                  onClick={handleContinue}
+                  className="flex-1 px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors"
+                >
+                  Yes, continue!
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }

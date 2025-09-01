@@ -5,6 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import StoryCard from '@/components/StoryCard'
 
 export default function ProfilePage() {
   const { isLoaded, isSignedIn, user } = useUser()
@@ -12,6 +14,8 @@ export default function ProfilePage() {
   const [isHovering, setIsHovering] = useState(false)
   const [profileData, setProfileData] = useState<any>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [stories, setStories] = useState<any[]>([])
+  const [isLoadingStories, setIsLoadingStories] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -23,6 +27,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       fetchProfile()
+      fetchStories()
     }
   }, [user])
 
@@ -35,6 +40,21 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error)
+    }
+  }
+
+  const fetchStories = async () => {
+    setIsLoadingStories(true)
+    try {
+      const response = await fetch('/api/story/list')
+      if (response.ok) {
+        const data = await response.json()
+        setStories(data.stories || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch stories:', error)
+    } finally {
+      setIsLoadingStories(false)
     }
   }
 
@@ -150,8 +170,9 @@ export default function ProfilePage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center">
-        <div className="flex flex-col items-center space-y-6">
+      <main className="flex-1">
+        <div className="max-w-4xl mx-auto px-8 py-12">
+          <div className="flex flex-col items-center">
           {/* Profile Picture with Edit Overlay */}
           <div 
             className="relative w-32 h-32 cursor-pointer"
@@ -201,7 +222,84 @@ export default function ProfilePage() {
           </div>
 
           {/* Name */}
-          <h1 className="text-3xl font-bold text-gray-900">{displayName}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">{displayName}</h1>
+          
+          {/* Bio */}
+          {profileData?.bio && (
+            <p className="text-gray-700 text-sm font-medium max-w-md text-center mb-6">{profileData.bio}</p>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 mb-12">
+            <Link 
+              href="/profile/edit"
+              className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-semibold transition-colors inline-block"
+            >
+              Edit profile
+            </Link>
+          </div>
+        </div>
+
+        {/* Section Title */}
+        <div className="flex justify-center mt-12 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900">Created Stories</h2>
+        </div>
+
+        {/* Stories Content */}
+        <div className="space-y-8">
+          <AnimatePresence>
+            {isLoadingStories ? (
+              <div className="flex justify-center py-12">
+                <svg className="animate-spin h-8 w-8 text-gray-400" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : stories.length > 0 ? (
+              stories.map((story, index) => {
+                const colors = ['#18A48C', '#79ED82', '#9FE5E5', '#FF6F3C', '#FF5E7D']
+                const color = colors[index % colors.length]
+                
+                return (
+                  <motion.div
+                    key={story.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <StoryCard
+                      title={story.title}
+                      description={story.description}
+                      content={story.content}
+                      audioUrl={story.audio_url}
+                      color={color}
+                    />
+                    <div className="flex items-center gap-3 mt-4">
+                      <span className="text-sm text-gray-500">
+                        {new Date(story.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  </motion.div>
+                )
+              })
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500 mb-4">No stories created yet</p>
+                <Link
+                  href="/"
+                  className="inline-flex items-center px-6 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors font-medium"
+                >
+                  Create your first story
+                </Link>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
         </div>
       </main>
     </div>

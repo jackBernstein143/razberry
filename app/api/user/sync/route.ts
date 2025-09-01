@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     
     if (existingProfile) {
       // Update existing profile
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('profiles')
         .update(profileData)
         .eq('clerk_user_id', user.id)
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       profile = data
     } else {
       // Create new profile
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('profiles')
         .insert(profileData)
         .select()

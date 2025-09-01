@@ -27,7 +27,13 @@ export async function POST(request: NextRequest) {
     // Upload image to Supabase Storage
     const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
-    const fileExt = avatar.match(/data:image\/(\w+)/)?.[1] || 'png'
+    let fileExt = avatar.match(/data:image\/(\w+)/)?.[1] || 'png'
+    
+    // Ensure we only use supported formats
+    if (!['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExt.toLowerCase())) {
+      fileExt = 'jpg' // Default to jpg for unsupported formats
+    }
+    
     const fileName = `${user.id}-${Date.now()}.${fileExt}`
     
     // Create storage bucket if it doesn't exist
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(fileName)
     
     // Update profile with new avatar URL
-    const { data: profile, error: updateError } = await supabase
+    const { data: profile, error: updateError } = await (supabase as any)
       .from('profiles')
       .update({ 
         avatar_url: publicUrl,
