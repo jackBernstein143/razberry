@@ -10,6 +10,7 @@ import { useTypingEffect } from '@/hooks/useTypingEffect'
 import { useRotatingPlaceholder } from '@/hooks/useRotatingPlaceholder'
 import { useUserSync } from '@/hooks/useUserSync'
 import { useRouter } from 'next/navigation'
+import PricingModal from '@/components/PricingModal'
 
 // Color palette
 const colors = {
@@ -42,7 +43,7 @@ export default function Home() {
   const [hasGeneratedFreeStory, setHasGeneratedFreeStory] = useState(false)
   const [wantsToContinue, setWantsToContinue] = useState(false)
   const [selectedVoice, setSelectedVoice] = useState<'male' | 'female'>('male')
-  const [showPaywall, setShowPaywall] = useState(false)
+  const [showPricingModal, setShowPricingModal] = useState(false)
   const [isFirstStory, setIsFirstStory] = useState(true)
   const [testMode, setTestMode] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -83,7 +84,7 @@ export default function Home() {
 
     // Check if user has already used their free story and isn't logged in
     if (hasGeneratedFreeStory && !user) {
-      router.push('/pricing')
+      setShowPricingModal(true)
       return
     }
 
@@ -219,7 +220,7 @@ export default function Home() {
       setIsFirstStory(false)
     } else {
       setWantsToContinue(false)
-      setShowPaywall(true)
+      setShowPricingModal(true)
     }
   }
 
@@ -581,55 +582,17 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Paywall Modal */}
-      <AnimatePresence>
-        {showPaywall && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 backdrop-blur-md z-50 flex items-center justify-center px-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full text-center border-3 border-black"
-            >
-              <h2 className="text-3xl font-bold mb-4">Ready for More?</h2>
-              <p className="text-gray-600 mb-6">
-                Unlock unlimited steamy stories with full-length audio narration.
-              </p>
-              <div className="space-y-4 mb-6">
-                <div className="flex items-center gap-3 text-left">
-                  <span className="text-2xl">✨</span>
-                  <span>Unlimited story generation</span>
-                </div>
-                <div className="flex items-center gap-3 text-left">
-                  <span className="text-2xl">🎭</span>
-                  <span>Multiple voice options</span>
-                </div>
-                <div className="flex items-center gap-3 text-left">
-                  <span className="text-2xl">🔥</span>
-                  <span>Full-length explicit content</span>
-                </div>
-              </div>
-              <button
-                onClick={() => router.push('/pricing')}
-                className="w-full px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors mb-3"
-              >
-                View Pricing
-              </button>
-              <button
-                onClick={() => setShowPaywall(false)}
-                className="text-gray-500 hover:text-gray-700 text-sm"
-              >
-                Maybe later
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Pricing Modal */}
+      <PricingModal 
+        isOpen={showPricingModal} 
+        onClose={() => setShowPricingModal(false)}
+        onAuthSuccess={() => {
+          // After successful auth, close modal and allow story generation
+          setShowPricingModal(false)
+          setHasGeneratedFreeStory(false)
+          setIsFirstStory(false)
+        }}
+      />
 
       {/* Test Mode Toggle (Development Only) */}
       {!user && (
