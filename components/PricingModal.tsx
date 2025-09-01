@@ -13,7 +13,7 @@ interface PricingModalProps {
 
 export default function PricingModal({ isOpen, onClose, onAuthSuccess }: PricingModalProps) {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
-  const [selectedPlan, setSelectedPlan] = useState<'basic' | 'pro' | null>(null)
+  const [selectedPlan, setSelectedPlan] = useState<'free' | 'basic' | 'pro' | null>(null)
   const { user, isLoaded } = useUser()
   const router = useRouter()
 
@@ -35,7 +35,7 @@ export default function PricingModal({ isOpen, onClose, onAuthSuccess }: Pricing
   useEffect(() => {
     if (user && isLoaded) {
       // Check if there's a pending plan from before auth
-      const pendingPlan = localStorage.getItem('pendingPlan') as 'basic' | 'pro' | null
+      const pendingPlan = localStorage.getItem('pendingPlan') as 'free' | 'basic' | 'pro' | null
       const pendingBilling = localStorage.getItem('pendingBillingPeriod') as 'monthly' | 'annual' | null
       
       if (pendingPlan && pendingBilling) {
@@ -46,7 +46,7 @@ export default function PricingModal({ isOpen, onClose, onAuthSuccess }: Pricing
     }
   }, [user, isLoaded])
 
-  const handleSelectPlan = async (plan: 'basic' | 'pro') => {
+  const handleSelectPlan = async (plan: 'free' | 'basic' | 'pro') => {
     setSelectedPlan(plan)
     
     // Store plan details for recovery after auth
@@ -62,7 +62,18 @@ export default function PricingModal({ isOpen, onClose, onAuthSuccess }: Pricing
     }
   }
 
-  const handlePayment = async (plan: 'basic' | 'pro') => {
+  const handlePayment = async (plan: 'free' | 'basic' | 'pro') => {
+    if (plan === 'free') {
+      // Free plan - just close modal and let user continue
+      localStorage.removeItem('pendingPlan')
+      localStorage.removeItem('pendingBillingPeriod')
+      if (onAuthSuccess) {
+        onAuthSuccess()
+      }
+      onClose()
+      return
+    }
+    
     // TODO: Integrate with Stripe
     console.log(`Processing payment for ${plan} - ${billingPeriod}`)
     
@@ -141,7 +152,63 @@ export default function PricingModal({ isOpen, onClose, onAuthSuccess }: Pricing
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Free Tier */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="relative bg-white rounded-2xl p-6 border-2 border-gray-300 flex flex-col"
+            >
+              <div className="mb-4">
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Free</h3>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold">$0</span>
+                  <span className="text-gray-500">/forever</span>
+                </div>
+              </div>
+
+              <ul className="space-y-3 mb-6 flex-grow">
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-gray-700">Unlimited listening</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-gray-700">Save stories</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-gray-500 line-through">Audio generation</span>
+                </li>
+              </ul>
+
+              {user ? (
+                <button
+                  onClick={() => handleSelectPlan('free')}
+                  className="w-full py-3 px-6 bg-gray-100 text-gray-700 font-semibold rounded-full border-2 border-gray-300 hover:bg-gray-200 transition-colors"
+                >
+                  Continue Free
+                </button>
+              ) : (
+                <SignUpButton mode="modal">
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('pendingPlan', 'free')
+                      localStorage.setItem('pendingBillingPeriod', billingPeriod)
+                    }}
+                    className="w-full py-3 px-6 bg-gray-100 text-gray-700 font-semibold rounded-full border-2 border-gray-300 hover:bg-gray-200 transition-colors"
+                  >
+                    Sign Up Free
+                  </button>
+                </SignUpButton>
+              )}
+            </motion.div>
+
             {/* Basic Tier */}
             <motion.div
               whileHover={{ scale: 1.02 }}

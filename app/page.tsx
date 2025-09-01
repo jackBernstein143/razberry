@@ -149,7 +149,7 @@ export default function Home() {
       if (!user && isFirstStory) {
         setIsFirstStory(false)
         setHasGeneratedFreeStory(true)
-        // Show continue button for sample stories
+        // Keep showing continue button until they sign up
         setWantsToContinue(true)
       }
     } catch (err) {
@@ -255,10 +255,6 @@ export default function Home() {
         <div className="w-full h-px bg-gray-200"></div>
         
         <nav className="p-8 space-y-4">
-          <Link href="/pricing" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
-            <span>Pricing</span>
-            <sup className="text-xs text-gray-400 transition-colors group-hover:text-[#79ED82]">✨</sup>
-          </Link>
           <Link href="/profile" className="group flex items-center space-x-2 text-gray-700 hover:text-gray-900">
             <span>Profile</span>
             <sup className="text-xs text-gray-400 transition-colors group-hover:text-[#18A48C]">01</sup>
@@ -279,15 +275,7 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {/* Header with Login/Signup */}
-        <header className="flex justify-between items-center px-12 py-6">
-          {/* Pricing link */}
-          <Link
-            href="/pricing"
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-          >
-            Pricing
-          </Link>
-          
+        <header className="flex justify-end items-center px-12 py-6">
           <div className="flex items-center gap-4">
             <SignedOut>
               <SignInButton mode="modal">
@@ -540,7 +528,7 @@ export default function Home() {
                   </button>
                 )}
                 
-                {/* Save Button */}
+                {/* Save Button - Always shows sign up for non-users */}
                 <SignedIn>
                   <button
                     onClick={handleSaveStory}
@@ -569,9 +557,11 @@ export default function Home() {
                 </SignedIn>
                 <SignedOut>
                   {!wantsToContinue && (
-                    <div className="px-6 py-3 bg-gray-200 text-gray-500 rounded-full font-medium cursor-not-allowed">
-                      Sign in to save
-                    </div>
+                    <SignUpButton mode="modal">
+                      <button className="px-6 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors font-medium">
+                        Sign up to save
+                      </button>
+                    </SignUpButton>
                   )}
                 </SignedOut>
               </motion.div>
