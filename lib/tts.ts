@@ -21,7 +21,7 @@ interface ElevenLabsError {
 export async function generateAudioFromText(text: string, voiceGender: 'male' | 'female' = 'male'): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY
   const maleVoiceId = process.env.ELEVENLABS_VOICE_ID
-  const femaleVoiceId = '6p0P6gezgvY1v6xbLzmU'
+  const femaleVoiceId = 'tQ4MEZFJOzsahSEEZtHK'
   const voiceId = voiceGender === 'female' ? femaleVoiceId : maleVoiceId
   const modelId = process.env.ELEVENLABS_MODEL_ID
 

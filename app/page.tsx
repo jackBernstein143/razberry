@@ -352,32 +352,31 @@ export default function Home() {
 
             {/* Input Form */}
             <form onSubmit={handleSubmit} className="relative mb-12">
-              <textarea
-                value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSubmit()
-                  }
-                }}
-                placeholder={placeholder}
-                className="w-full px-8 py-5 pr-16 pl-32 text-lg border-3 border-gray-900 rounded-[2rem] focus:outline-none focus:border-gray-700 transition-colors bg-white placeholder:text-gray-400 resize-none min-h-[120px]"
-                disabled={isLoading}
-                rows={3}
-              />
-              
-              {/* Voice Selector Dropdown */}
-              <div className="absolute left-5 bottom-5">
-                <select
-                  value={selectedVoice}
-                  onChange={(e) => setSelectedVoice(e.target.value as 'male' | 'female')}
-                  className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-gray-500"
+              <div className="relative">
+                <textarea
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSubmit()
+                    }
+                  }}
+                  placeholder={placeholder}
+                  className="w-full px-8 py-5 pr-16 text-lg border-3 border-gray-900 rounded-[2rem] focus:outline-none focus:border-gray-700 transition-colors bg-white placeholder:text-gray-400 resize-none min-h-[120px]"
+                  disabled={isLoading}
+                  rows={3}
+                />
+                
+                {/* Voice Selector Pill */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedVoice(selectedVoice === 'male' ? 'female' : 'male')}
+                  className="absolute left-5 bottom-5 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded-full transition-colors border border-gray-300"
                   disabled={isLoading}
                 >
-                  <option value="male">🗣️ Male</option>
-                  <option value="female">🗣️ Female</option>
-                </select>
+                  {selectedVoice === 'male' ? 'Male' : 'Female'}
+                </button>
               </div>
               <button
                 type="submit"
