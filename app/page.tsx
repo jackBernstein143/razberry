@@ -283,14 +283,15 @@ export default function Home() {
                   Login
                 </button>
               </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="relative group">
-                  <span className="absolute inset-0 bg-black rounded-full" />
-                  <span className="relative block bg-[#79ED82] text-black px-6 py-2.5 rounded-full font-medium border-3 border-black transition-transform group-hover:-translate-y-1 group-hover:translate-x-1">
-                    Sign up
-                  </span>
-                </button>
-              </SignUpButton>
+              <button 
+                onClick={() => setShowPricingModal(true)}
+                className="relative group"
+              >
+                <span className="absolute inset-0 bg-black rounded-full" />
+                <span className="relative block bg-[#79ED82] text-black px-6 py-2.5 rounded-full font-medium border-3 border-black transition-transform group-hover:-translate-y-1 group-hover:translate-x-1">
+                  Sign up
+                </span>
+              </button>
             </SignedOut>
             <SignedIn>
               <UserButton 
@@ -528,7 +529,7 @@ export default function Home() {
                   </button>
                 )}
                 
-                {/* Save Button - Always shows sign up for non-users */}
+                {/* Keep Going / Save Button */}
                 <SignedIn>
                   <button
                     onClick={handleSaveStory}
@@ -557,11 +558,12 @@ export default function Home() {
                 </SignedIn>
                 <SignedOut>
                   {!wantsToContinue && (
-                    <SignUpButton mode="modal">
-                      <button className="px-6 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors font-medium">
-                        Sign up to save
-                      </button>
-                    </SignUpButton>
+                    <button 
+                      onClick={() => setShowPricingModal(true)}
+                      className="px-6 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors font-medium"
+                    >
+                      Keep going →
+                    </button>
                   )}
                 </SignedOut>
               </motion.div>
