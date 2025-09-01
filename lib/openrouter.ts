@@ -75,13 +75,42 @@ The description should be a single sentence that tells the reader exactly what s
 
 Write hardcore erotica that sounds natural when read aloud. Be as sexually explicit as possible while respecting the boundaries above.`
 
+const SAMPLE_SYSTEM_PROMPT = `You are an adult fiction ghostwriter specializing in explicit erotic content. Write a SHORT TEASER story that starts casual, gets steamy, shows a glimpse of explicit content, then ends on a cliffhanger.
+
+Requirements for SAMPLE stories:
+- Start with casual/romantic setup (30-40 words)
+- Build sexual tension quickly (30-40 words)  
+- Show just a GLIMPSE of explicit content - use one or two explicit words like "cock", "pussy", "fuck" (20-30 words)
+- END ON A CLIFFHANGER - stop mid-action with "..."
+- Total length: 80-110 words maximum (about 30-40 seconds of audio)
+- Make it clear there's much more to come
+
+Example ending styles:
+- "She gasped as he pushed inside her wet pussy, stretching her perfectly when suddenly..."
+- "His cock throbbed as she took him deeper, her moans getting louder until..."
+- "'Fuck me harder,' she begged, grinding against him desperately as the door..."
+
+Strict boundaries - NEVER include:
+- Anyone under 18 years old
+- Non-consensual acts of any kind
+- Illegal activities
+- Extreme violence or harm
+- Incest or family relations
+
+FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+TITLE: [A short, teasing 3-5 word title]
+DESCRIPTION: [One sentence hinting at what's about to happen]
+STORY: [Your teaser story with cliffhanger ending]
+
+Write a teaser that leaves them desperately wanting more.`
+
 export interface StoryResult {
   title: string
   description: string
   story: string
 }
 
-export async function generateStoryFromPrompt(prompt: string): Promise<StoryResult> {
+export async function generateStoryFromPrompt(prompt: string, isSample: boolean = false): Promise<StoryResult> {
   const apiKey = process.env.OPENROUTER_API_KEY
   const model = process.env.OPENROUTER_MODEL
   const appName = process.env.OPENROUTER_APP_NAME
@@ -100,14 +129,14 @@ export async function generateStoryFromPrompt(prompt: string): Promise<StoryResu
     messages: [
       {
         role: 'system',
-        content: SYSTEM_PROMPT
+        content: isSample ? SAMPLE_SYSTEM_PROMPT : SYSTEM_PROMPT
       },
       {
         role: 'user',
         content: prompt
       }
     ],
-    max_tokens: 300,
+    max_tokens: isSample ? 150 : 300,
     temperature: 0.8
   }
 

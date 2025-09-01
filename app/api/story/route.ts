@@ -4,7 +4,9 @@ import { generateStoryFromPrompt } from '@/lib/openrouter'
 import { generateAudioFromText } from '@/lib/tts'
 
 const StoryRequestSchema = z.object({
-  prompt: z.string().min(1).max(1000)
+  prompt: z.string().min(1).max(1000),
+  voiceGender: z.enum(['male', 'female']).optional().default('male'),
+  isSample: z.boolean().optional().default(false)
 })
 
 export async function POST(request: NextRequest) {
@@ -24,18 +26,18 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { prompt } = validation.data
+    const { prompt, voiceGender, isSample } = validation.data
     
     console.log('Generating story for prompt:', prompt.substring(0, 100) + '...')
     
-    const storyResult = await generateStoryFromPrompt(prompt)
+    const storyResult = await generateStoryFromPrompt(prompt, isSample)
     
     console.log('Story generated successfully, title:', storyResult.title, 'description:', storyResult.description, 'length:', storyResult.story.length)
     
     console.log('Generating audio from story text...')
     
     try {
-      const audioBuffer = await generateAudioFromText(storyResult.story)
+      const audioBuffer = await generateAudioFromText(storyResult.story, voiceGender)
       const audioBase64 = audioBuffer.toString('base64')
       
       console.log('Audio generated successfully, size:', audioBuffer.length, 'bytes')

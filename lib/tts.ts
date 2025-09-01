@@ -18,16 +18,18 @@ interface ElevenLabsError {
   error?: string
 }
 
-export async function generateAudioFromText(text: string): Promise<Buffer> {
+export async function generateAudioFromText(text: string, voiceGender: 'male' | 'female' = 'male'): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY
-  const voiceId = process.env.ELEVENLABS_VOICE_ID
+  const maleVoiceId = process.env.ELEVENLABS_VOICE_ID
+  const femaleVoiceId = '6p0P6gezgvY1v6xbLzmU'
+  const voiceId = voiceGender === 'female' ? femaleVoiceId : maleVoiceId
   const modelId = process.env.ELEVENLABS_MODEL_ID
 
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY is not configured')
   }
 
-  if (!voiceId) {
+  if (!maleVoiceId && voiceGender === 'male') {
     throw new Error('ELEVENLABS_VOICE_ID is not configured')
   }
 

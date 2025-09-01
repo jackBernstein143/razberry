@@ -41,6 +41,10 @@ export default function Home() {
   const [audioBase64, setAudioBase64] = useState('')
   const [hasGeneratedFreeStory, setHasGeneratedFreeStory] = useState(false)
   const [wantsToContinue, setWantsToContinue] = useState(false)
+  const [selectedVoice, setSelectedVoice] = useState<'male' | 'female'>('male')
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [isFirstStory, setIsFirstStory] = useState(true)
+  const [testMode, setTestMode] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const { user } = useUser()
   const router = useRouter()
@@ -48,12 +52,14 @@ export default function Home() {
   // Sync user profile with Supabase
   useUserSync()
 
-  // Check if user has already used their free generation
+  // Check if user has already used their free generation and test mode
   useEffect(() => {
     const freeStoryUsed = localStorage.getItem('freeStoryUsed')
+    const isTestMode = localStorage.getItem('testMode') === 'true'
     if (freeStoryUsed === 'true') {
       setHasGeneratedFreeStory(true)
     }
+    setTestMode(isTestMode)
   }, [])
   
   // Use typing effect when loading
@@ -100,7 +106,11 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: promptText }),
+        body: JSON.stringify({ 
+          prompt: promptText,
+          voiceGender: selectedVoice,
+          isSample: !user && isFirstStory
+        }),
       })
 
       const data: TTSResponse | ErrorResponse = await response.json()
@@ -135,13 +145,11 @@ export default function Home() {
       setPromptText('')
       
       // Mark that user has used their free generation
-      if (!user && !hasGeneratedFreeStory) {
-        localStorage.setItem('freeStoryUsed', 'true')
+      if (!user && isFirstStory) {
+        setIsFirstStory(false)
         setHasGeneratedFreeStory(true)
-        // Show continue prompt after story is complete
-        setTimeout(() => {
-          setWantsToContinue(true)
-        }, 3000)
+        // Show continue button for sample stories
+        setWantsToContinue(true)
       }
     } catch (err) {
       console.error('Error generating story:', err)
@@ -203,8 +211,16 @@ export default function Home() {
   }
 
   const handleContinue = () => {
-    setWantsToContinue(false)
-    router.push('/pricing')
+    if (testMode) {
+      // In test mode, just clear the continue state and allow generation
+      setWantsToContinue(false)
+      localStorage.setItem('freeStoryUsed', 'false')
+      setHasGeneratedFreeStory(false)
+      setIsFirstStory(false)
+    } else {
+      setWantsToContinue(false)
+      setShowPaywall(true)
+    }
   }
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -346,10 +362,23 @@ export default function Home() {
                   }
                 }}
                 placeholder={placeholder}
-                className="w-full px-8 py-5 pr-16 text-lg border-3 border-gray-900 rounded-[2rem] focus:outline-none focus:border-gray-700 transition-colors bg-white placeholder:text-gray-400 resize-none min-h-[120px]"
+                className="w-full px-8 py-5 pr-16 pl-32 text-lg border-3 border-gray-900 rounded-[2rem] focus:outline-none focus:border-gray-700 transition-colors bg-white placeholder:text-gray-400 resize-none min-h-[120px]"
                 disabled={isLoading}
                 rows={3}
               />
+              
+              {/* Voice Selector Dropdown */}
+              <div className="absolute left-5 bottom-5">
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => setSelectedVoice(e.target.value as 'male' | 'female')}
+                  className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-gray-500"
+                  disabled={isLoading}
+                >
+                  <option value="male">🗣️ Male</option>
+                  <option value="female">🗣️ Female</option>
+                </select>
+              </div>
               <button
                 type="submit"
                 disabled={isLoading || !promptText.trim()}
@@ -501,6 +530,16 @@ export default function Home() {
                 exit={{ opacity: 0, y: -20 }}
                 className="flex items-center gap-3 mt-4"
               >
+                {/* Continue Button for sample stories */}
+                {wantsToContinue && !user && (
+                  <button
+                    onClick={handleContinue}
+                    className="px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition-colors font-medium"
+                  >
+                    Continue Story →
+                  </button>
+                )}
+                
                 {/* Save Button */}
                 <SignedIn>
                   <button
@@ -529,9 +568,11 @@ export default function Home() {
                   </button>
                 </SignedIn>
                 <SignedOut>
-                  <div className="px-6 py-3 bg-gray-200 text-gray-500 rounded-full font-medium cursor-not-allowed">
-                    Sign in to save
-                  </div>
+                  {!wantsToContinue && (
+                    <div className="px-6 py-3 bg-gray-200 text-gray-500 rounded-full font-medium cursor-not-allowed">
+                      Sign in to save
+                    </div>
+                  )}
                 </SignedOut>
               </motion.div>
             )}
@@ -541,43 +582,80 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Continue Prompt for first-time users */}
+      {/* Paywall Modal */}
       <AnimatePresence>
-        {wantsToContinue && !user && (
+        {showPaywall && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 backdrop-blur-md z-40 flex items-center justify-center px-4"
+            className="fixed inset-0 backdrop-blur-md z-50 flex items-center justify-center px-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full text-center"
+              className="bg-white rounded-3xl p-8 max-w-md w-full text-center border-3 border-black"
             >
-              <h3 className="text-2xl font-bold mb-4">Enjoying your story?</h3>
+              <h2 className="text-3xl font-bold mb-4">Ready for More?</h2>
               <p className="text-gray-600 mb-6">
-                Want to continue creating more amazing audio stories?
+                Unlock unlimited steamy stories with full-length audio narration.
               </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setWantsToContinue(false)}
-                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-colors"
-                >
-                  Not now
-                </button>
-                <button
-                  onClick={handleContinue}
-                  className="flex-1 px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors"
-                >
-                  Yes, continue!
-                </button>
+              <div className="space-y-4 mb-6">
+                <div className="flex items-center gap-3 text-left">
+                  <span className="text-2xl">✨</span>
+                  <span>Unlimited story generation</span>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <span className="text-2xl">🎭</span>
+                  <span>Multiple voice options</span>
+                </div>
+                <div className="flex items-center gap-3 text-left">
+                  <span className="text-2xl">🔥</span>
+                  <span>Full-length explicit content</span>
+                </div>
               </div>
+              <button
+                onClick={() => router.push('/pricing')}
+                className="w-full px-6 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors mb-3"
+              >
+                View Pricing
+              </button>
+              <button
+                onClick={() => setShowPaywall(false)}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                Maybe later
+              </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Test Mode Toggle (Development Only) */}
+      {!user && (
+        <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={testMode}
+              onChange={(e) => {
+                const newTestMode = e.target.checked
+                setTestMode(newTestMode)
+                localStorage.setItem('testMode', newTestMode ? 'true' : 'false')
+                if (!newTestMode) {
+                  // Reset state when turning off test mode
+                  localStorage.removeItem('freeStoryUsed')
+                  setHasGeneratedFreeStory(false)
+                  setIsFirstStory(true)
+                }
+              }}
+              className="w-4 h-4"
+            />
+            Test Mode
+          </label>
+        </div>
+      )}
 
     </div>
   )
