@@ -8,15 +8,15 @@ const CheckoutRequestSchema = z.object({
   billingPeriod: z.enum(['monthly', 'annual']),
 })
 
-// Temporary price IDs - you'll need to create these in Stripe Dashboard
+// Stripe price IDs
 const PRICE_IDS = {
   basic: {
-    monthly: 'price_1QfXXXXXXXXXXXXX', // Replace with actual price ID
-    annual: 'price_1QfYYYYYYYYYYYYY',   // Replace with actual price ID
+    monthly: 'price_1S2jyAKDe38yDWfrEUcOT9sY',
+    annual: 'price_1S2jyAKDe38yDWfrkT1gqNjt',
   },
   pro: {
-    monthly: 'price_1QfZZZZZZZZZZZZZ', // Replace with actual price ID
-    annual: 'price_1QfAAAAAAAAAAAAA',   // Replace with actual price ID
+    monthly: 'price_1S2jyAKDe38yDWfrpkWXP8q4',
+    annual: 'price_1S2jyBKDe38yDWfra11z0KD6',
   },
 }
 
@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/profile?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/profile?subscription_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       customer_update: {

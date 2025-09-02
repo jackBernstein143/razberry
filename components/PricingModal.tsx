@@ -44,7 +44,10 @@ export default function PricingModal({ isOpen, onClose, onAuthSuccess }: Pricing
       if (pendingPlan && pendingBilling) {
         // User just authenticated with a pending plan
         setBillingPeriod(pendingBilling)
-        handlePayment(pendingPlan)
+        // Small delay to ensure auth is fully processed
+        setTimeout(() => {
+          handlePayment(pendingPlan)
+        }, 100)
       }
     }
   }, [user, isLoaded])

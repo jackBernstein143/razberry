@@ -4,13 +4,15 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs'
+import { SignInButton, SignUpButton, SignedIn, SignedOut, useUser } from '@clerk/nextjs'
 import type { StoryPrompt, TTSResponse, ErrorResponse } from '@/types'
 import { useTypingEffect } from '@/hooks/useTypingEffect'
 import { useRotatingPlaceholder } from '@/hooks/useRotatingPlaceholder'
 import { useUserSync } from '@/hooks/useUserSync'
 import { useRouter } from 'next/navigation'
 import PricingModal from '@/components/PricingModal'
+import UserMenu from '@/components/UserMenu'
+import UpgradeModal from '@/components/UpgradeModal'
 
 // Color palette
 const colors = {
@@ -46,13 +48,50 @@ export default function Home() {
   const [showPricingModal, setShowPricingModal] = useState(false)
   const [isFirstStory, setIsFirstStory] = useState(true)
   const [testMode, setTestMode] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const router = useRouter()
   
   // Sync user profile with Supabase
   useUserSync()
+  
+  // Fetch user profile to check subscription
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile()
+    }
+  }, [user])
+  
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch('/api/user/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setUserProfile(data)
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+    }
+  }
 
+  // Check for successful payment return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const success = params.get('success')
+    const sessionId = params.get('session_id')
+    
+    if (success === 'true' && sessionId) {
+      // Clear the URL params
+      window.history.replaceState({}, '', '/')
+      // Refresh profile to get updated subscription
+      if (user) {
+        fetchUserProfile()
+      }
+    }
+  }, [])
+  
   // Check if user has already used their free generation and test mode
   useEffect(() => {
     const freeStoryUsed = localStorage.getItem('freeStoryUsed')
@@ -61,7 +100,86 @@ export default function Home() {
       setHasGeneratedFreeStory(true)
     }
     setTestMode(isTestMode)
+    
+    // Check if there's a pending story from before auth
+    const pendingStory = localStorage.getItem('pendingStory')
+    if (pendingStory) {
+      try {
+        const storyData = JSON.parse(pendingStory)
+        setStoryTitle(storyData.title)
+        setStoryDescription(storyData.description)
+        setStoryText(storyData.text)
+        setOriginalPrompt(storyData.prompt)
+        setCardColor(storyData.cardColor)
+        setWantsToContinue(storyData.wantsToContinue)
+        setSelectedVoice(storyData.selectedVoice)
+        
+        // Restore audio if it exists
+        if (storyData.audioBase64) {
+          setAudioBase64(storyData.audioBase64)
+          const audioBlob = new Blob(
+            [Uint8Array.from(atob(storyData.audioBase64), c => c.charCodeAt(0))],
+            { type: 'audio/mpeg' }
+          )
+          const url = URL.createObjectURL(audioBlob)
+          setAudioUrl(url)
+        }
+        
+        // Clear the pending story from localStorage
+        localStorage.removeItem('pendingStory')
+      } catch (error) {
+        console.error('Error restoring pending story:', error)
+      }
+    }
   }, [])
+  
+  // Check for pending checkout after auth
+  useEffect(() => {
+    if (user && isLoaded) {
+      const pendingPlan = localStorage.getItem('pendingPlan')
+      const pendingBilling = localStorage.getItem('pendingBillingPeriod')
+      
+      if (pendingPlan && pendingBilling && (pendingPlan === 'basic' || pendingPlan === 'pro')) {
+        // User just authenticated with a paid plan, trigger checkout
+        handleCheckout(pendingPlan as 'basic' | 'pro', pendingBilling as 'monthly' | 'annual')
+      }
+    }
+  }, [user, isLoaded])
+  
+  const handleCheckout = async (plan: 'basic' | 'pro', billingPeriod: 'monthly' | 'annual') => {
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan,
+          billingPeriod,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create checkout session')
+      }
+
+      const { checkoutUrl } = await response.json()
+
+      // Clean up stored plan data
+      localStorage.removeItem('pendingPlan')
+      localStorage.removeItem('pendingBillingPeriod')
+      
+      // Redirect to Stripe Checkout
+      window.location.href = checkoutUrl
+    } catch (error) {
+      console.error('Payment error:', error)
+      setError('Failed to start checkout process. Please try again.')
+      // Clean up on error
+      localStorage.removeItem('pendingPlan')
+      localStorage.removeItem('pendingBillingPeriod')
+    }
+  }
   
   // Use typing effect when loading
   const { displayedText, isTyping } = useTypingEffect(storyText, 20, isLoading && !isGeneratingAudio)
@@ -85,6 +203,12 @@ export default function Home() {
     // Check if user has already used their free story and isn't logged in
     if (hasGeneratedFreeStory && !user) {
       setShowPricingModal(true)
+      return
+    }
+    
+    // Check if logged-in user is on free plan
+    if (user && userProfile && (!userProfile.subscription_plan || userProfile.subscription_plan === 'free')) {
+      setShowUpgradeModal(true)
       return
     }
 
@@ -151,6 +275,19 @@ export default function Home() {
         setHasGeneratedFreeStory(true)
         // Keep showing continue button until they sign up
         setWantsToContinue(true)
+        
+        // Store the story in localStorage in case they sign up
+        const pendingStoryData = {
+          title: storyData.storyTitle,
+          description: storyData.storyDescription,
+          text: storyData.storyText,
+          audioBase64: storyData.audio?.base64,
+          prompt: promptText,
+          cardColor: randomColor,
+          wantsToContinue: true,
+          selectedVoice
+        }
+        localStorage.setItem('pendingStory', JSON.stringify(pendingStoryData))
       }
     } catch (err) {
       console.error('Error generating story:', err)
@@ -219,6 +356,19 @@ export default function Home() {
       setHasGeneratedFreeStory(false)
       setIsFirstStory(false)
     } else {
+      // Store current story state before showing pricing modal
+      const currentStoryData = {
+        title: storyTitle,
+        description: storyDescription,
+        text: storyText,
+        audioBase64: audioBase64,
+        prompt: originalPrompt,
+        cardColor: cardColor,
+        wantsToContinue: true,
+        selectedVoice
+      }
+      localStorage.setItem('pendingStory', JSON.stringify(currentStoryData))
+      
       setWantsToContinue(false)
       setShowPricingModal(true)
     }
@@ -294,15 +444,7 @@ export default function Home() {
               </button>
             </SignedOut>
             <SignedIn>
-              <UserButton 
-                appearance={{
-                  elements: {
-                    avatarBox: "w-10 h-10",
-                    userButtonPopoverCard: "shadow-lg",
-                  }
-                }}
-                showName={true}
-              />
+              <UserMenu />
             </SignedIn>
           </div>
         </header>
@@ -584,6 +726,12 @@ export default function Home() {
           setHasGeneratedFreeStory(false)
           setIsFirstStory(false)
         }}
+      />
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
       />
 
       {/* Test Mode Toggle (Development Only) */}

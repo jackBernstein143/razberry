@@ -1,21 +1,23 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import StoryCard from '@/components/StoryCard'
 
-export default function ProfilePage() {
+function ProfileContent() {
   const { isLoaded, isSignedIn, user } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isHovering, setIsHovering] = useState(false)
   const [profileData, setProfileData] = useState<any>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [stories, setStories] = useState<any[]>([])
   const [isLoadingStories, setIsLoadingStories] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -23,6 +25,20 @@ export default function ProfilePage() {
       router.push('/')
     }
   }, [isLoaded, isSignedIn, router])
+  
+  // Check for subscription success
+  useEffect(() => {
+    const success = searchParams.get('subscription_success')
+    if (success === 'true') {
+      setShowSuccessMessage(true)
+      // Clear URL params
+      window.history.replaceState({}, '', '/profile')
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false)
+      }, 5000)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (user) {
@@ -171,6 +187,27 @@ export default function ProfilePage() {
 
       {/* Main Content */}
       <main className="flex-1">
+        {/* Success Message */}
+        <AnimatePresence>
+          {showSuccessMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-green-50 border-b border-green-200 px-8 py-4"
+            >
+              <div className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <p className="text-green-800 font-medium">
+                  Subscription activated successfully! Welcome to your new plan.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         <div className="max-w-4xl mx-auto px-8 py-12">
           <div className="flex flex-col items-center">
           {/* Profile Picture with Edit Overlay */}
@@ -303,5 +340,13 @@ export default function ProfilePage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <ProfileContent />
+    </Suspense>
   )
 }

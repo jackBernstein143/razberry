@@ -1,16 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SignInButton, useUser } from '@clerk/nextjs'
 
-export default function PricingPage() {
+function PricingContent() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
+  const [isLoading, setIsLoading] = useState(false)
   const { user } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isUpgrade = searchParams.get('upgrade') === 'true'
 
   // Price calculations
   const prices = {
@@ -26,27 +29,43 @@ export default function PricingPage() {
     }
   }
 
-  const handleSelectPlan = (plan: 'free' | 'basic' | 'pro') => {
+  const handleSelectPlan = async (plan: 'free' | 'basic' | 'pro') => {
     if (plan === 'free') {
-      // If user is not signed in, prompt to sign up
-      if (!user) {
-        // Store the selected plan in localStorage to resume after sign up
-        localStorage.setItem('selectedPlan', plan)
-      } else {
-        router.push('/')
-      }
+      // Free plan - just redirect home
+      router.push('/')
     } else {
-      // Store selected plan and billing period
-      localStorage.setItem('selectedPlan', plan)
-      localStorage.setItem('billingPeriod', billingPeriod)
-      
-      // TODO: Redirect to Stripe checkout
-      console.log(`Redirect to Stripe checkout: ${plan} - ${billingPeriod}`)
-      
-      // For now, if user is not signed in, we'll need them to sign up first
+      // Paid plans - create Stripe checkout
       if (!user) {
-        // Redirect to sign up with plan info stored
-        console.log('User needs to sign up first')
+        // Store plan for after auth
+        localStorage.setItem('pendingPlan', plan)
+        localStorage.setItem('pendingBillingPeriod', billingPeriod)
+        // Will be handled by SignInButton
+        return
+      }
+      
+      setIsLoading(true)
+      try {
+        const response = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            plan,
+            billingPeriod,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to create checkout session')
+        }
+
+        const { checkoutUrl } = await response.json()
+        window.location.href = checkoutUrl
+      } catch (error) {
+        console.error('Checkout error:', error)
+        alert('Failed to start checkout. Please try again.')
+        setIsLoading(false)
       }
     }
   }
@@ -275,5 +294,13 @@ export default function PricingPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <PricingContent />
+    </Suspense>
   )
 }
