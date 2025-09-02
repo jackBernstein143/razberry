@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUser, SignInButton, SignUpButton } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import { loadStripe } from '@stripe/stripe-js'
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 interface PricingModalProps {
   isOpen: boolean
@@ -74,18 +77,36 @@ export default function PricingModal({ isOpen, onClose, onAuthSuccess }: Pricing
       return
     }
     
-    // TODO: Integrate with Stripe
-    console.log(`Processing payment for ${plan} - ${billingPeriod}`)
-    
-    // For now, just close the modal
-    // In production, this would redirect to Stripe checkout
-    alert(`Would redirect to Stripe for ${plan} plan (${billingPeriod} billing)`)
-    
-    // Clean up stored plan data
-    localStorage.removeItem('pendingPlan')
-    localStorage.removeItem('pendingBillingPeriod')
-    
-    onClose()
+    try {
+      // Create Stripe checkout session
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan,
+          billingPeriod,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create checkout session')
+      }
+
+      const { checkoutUrl } = await response.json()
+
+      // Clean up stored plan data
+      localStorage.removeItem('pendingPlan')
+      localStorage.removeItem('pendingBillingPeriod')
+      
+      // Redirect to Stripe Checkout
+      window.location.href = checkoutUrl
+    } catch (error) {
+      console.error('Payment error:', error)
+      alert('Failed to start checkout process. Please try again.')
+    }
   }
 
   const formatPrice = (price: number) => {

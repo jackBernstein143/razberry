@@ -19,6 +19,14 @@ export interface Database {
           bio: string | null
           created_at: string
           updated_at: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          subscription_plan: string | null
+          subscription_period: string | null
+          subscription_current_period_end: string | null
+          audio_minutes_used: number
+          audio_minutes_limit: number
         }
         Insert: {
           id?: string
@@ -29,6 +37,14 @@ export interface Database {
           bio?: string | null
           created_at?: string
           updated_at?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          subscription_plan?: string | null
+          subscription_period?: string | null
+          subscription_current_period_end?: string | null
+          audio_minutes_used?: number
+          audio_minutes_limit?: number
         }
         Update: {
           id?: string
@@ -39,6 +55,14 @@ export interface Database {
           bio?: string | null
           created_at?: string
           updated_at?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          subscription_plan?: string | null
+          subscription_period?: string | null
+          subscription_current_period_end?: string | null
+          audio_minutes_used?: number
+          audio_minutes_limit?: number
         }
       }
       stories: {
